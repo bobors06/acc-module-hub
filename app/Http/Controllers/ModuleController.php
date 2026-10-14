@@ -2,36 +2,98 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Storage;
 use App\Models\Module;
+use App\Models\ModuleAccessRequest;
+use App\Models\ModuleFeedback;
+use App\Models\ModuleLike;
+use App\Notifications\ModuleAccessApprovedNotification;
+use App\Notifications\ModuleAccessRequestedNotification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class ModuleController extends Controller
 {
     public function index(Request $request): Response
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
+        $selectedYear = trim((string) $request->query('year_level', ''));
+        $with = ['uploader', 'likes', 'feedback.user', 'feedback.replyBy'];
 
-    $modules = Module::with('uploader')
-        ->when(
-            $user?->role === 'student',
-            fn ($query) => $query->where('is_active', true)
-        )
-        ->when(
-            $request->year_level && $request->year_level !== 'All',
-            fn ($query, $yearLevel) => $query->where('year_level', $yearLevel)
-        )
-        ->latest()
-        ->get();
+        if ($user?->role === 'student') {
+            $with['accessRequests'] = fn ($query) => $query->where('student_id', $user->id);
+        } elseif (in_array($user?->role, ['admin', 'teacher'], true)) {
+            $with['accessRequests.student'] = fn ($query) => $query->latest();
+        }
 
-    return Inertia::render('dashboard', [
-        'modules' => $modules,
-        'filters' => $request->only('year_level'),
-    ]);
-}
+        $modules = Module::with($with)
+            ->when(
+                $user?->role === 'student',
+                fn ($query) => $query->where('is_active', true)
+            )
+            ->when(
+                $selectedYear !== '' && Str::lower($selectedYear) !== 'all',
+                fn ($query) => $query->whereRaw(
+                    'LOWER(TRIM(year_level)) = ?',
+                    [Str::lower($selectedYear)]
+                )
+            )
+            ->latest()
+            ->get();
 
+        $modules->each(function (Module $module) use ($user): void {
+            $accessRequest = $module->accessRequests->first();
+            $module->setAttribute('likes_count', $module->likes->count());
+            $module->setAttribute('user_has_liked', $user
+                ? $module->likes->contains('user_id', $user->id)
+                : false);
+            $module->setAttribute('feedbacks', $module->feedback->map(fn (ModuleFeedback $feedback) => [
+                'id' => $feedback->id,
+                'comment' => $feedback->comment,
+                'user_name' => $feedback->user?->name,
+                'reply' => $feedback->reply,
+                'reply_by_name' => $feedback->replyBy?->name,
+                'created_at' => $feedback->created_at,
+            ])->values());
+            $module->unsetRelation('likes');
+            $module->unsetRelation('feedback');
+
+            if ($user?->role === 'student') {
+                $module->setAttribute(
+                    'access_status',
+                    $accessRequest?->verified_at ? 'verified' : ($accessRequest?->status ?? 'not_requested')
+                );
+                $module->setAttribute('access_request_id', $accessRequest?->id);
+                $module->unsetRelation('accessRequests');
+            } elseif (in_array($user?->role, ['admin', 'teacher'], true)) {
+                $requests = $user->role === 'admin' || $module->uploaded_by === $user->id
+                    ? $module->accessRequests
+                    : collect();
+
+                $module->setAttribute(
+                    'access_requests',
+                    $requests->map(fn (ModuleAccessRequest $request) => [
+                        'id' => $request->id,
+                        'student_id' => $request->student_id,
+                        'student_name' => $request->student?->name,
+                        'status' => $request->status,
+                        'access_code' => $request->access_code,
+                        'approved_at' => $request->approved_at,
+                    ])->values()
+                );
+                $module->unsetRelation('accessRequests');
+            }
+        });
+
+        return Inertia::render('dashboard', [
+            'modules' => $modules,
+            'filters' => $request->only('year_level'),
+            'notifications' => $user->notifications()->latest()->limit(20)->get(),
+            'unreadNotificationsCount' => $user->unreadNotifications()->count(),
+        ]);
+    }
 
     public function create(): Response
     {
@@ -39,105 +101,279 @@ class ModuleController extends Controller
     }
 
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'title' => 'required|string|max:255',
-        'subject' => 'required|string|max:255',
-        'year_level' => 'required|string',
-        'file' => 'required|file|max:20480',
-    ]);
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'subject' => 'required|string|max:255',
+            'year_level' => 'required|string',
+            'file' => 'required|file|max:20480',
+        ]);
 
-    if (! $request->hasFile('file') || ! $request->file('file')->isValid()) {
-        return back()->withErrors(['file' => 'The file failed to upload — it may be too large or the connection was interrupted.']);
+        if (! $request->hasFile('file') || ! $request->file('file')->isValid()) {
+            return back()->withErrors([
+                'file' => 'The file failed to upload — it may be too large or the connection was interrupted.',
+            ]);
+        }
+
+        $file = $request->file('file');
+        $path = $file->store('modules', 'public');
+        $yearLevel = $validated['year_level'] === 'All Students'
+            ? 'All'
+            : $validated['year_level'];
+
+        Module::create([
+            'title' => $validated['title'],
+            'subject' => $validated['subject'],
+            'year_level' => $yearLevel,
+            'file_path' => $path,
+            'file_type' => $file->extension(),
+            'file_size' => $file->getSize(),
+            'uploaded_by' => $request->user()->id,
+        ]);
+
+        return to_route('dashboard')->with('success', 'Module uploaded.');
     }
 
-    $path = $request->file('file')->store('modules', 'public');
+    public function requestAccess(Module $module, Request $request)
+    {
+        abort_unless($request->user()?->role === 'student', 403);
+        abort_unless($module->is_active, 403, 'This module is currently disabled.');
 
+        $accessRequest = ModuleAccessRequest::updateOrCreate(
+            [
+                'module_id' => $module->id,
+                'student_id' => $request->user()->id,
+            ],
+            [
+                'status' => 'pending',
+                'access_code' => null,
+                'approved_at' => null,
+                'verified_at' => null,
+            ],
+        );
 
-    Module::create([
-        'title' => $validated['title'],
-        'subject' => $validated['subject'],
-        'year_level' => $validated['year_level'],
-        'file_path' => $path,
-        'file_type' => $request->file('file')->extension(),
-        'file_size' => $request->file('file')->getSize(),
-        'uploaded_by' => $request->user()->id,
-    ]);
+        $module->loadMissing('uploader');
+        $module->uploader?->notify(new ModuleAccessRequestedNotification($module, $accessRequest->load('student')));
 
-    return to_route('dashboard')->with('success', 'Module uploaded.');
-}
-   public function download(Module $module, Request $request)
-{
-    $request->user()->downloadedModules()->syncWithoutDetaching([
-        $module->id => ['updated_at' => now()],
-    ]);
+        return back()->with('success', 'Access request sent. Please wait for the uploader to provide your code.');
+    }
 
-    return Storage::disk('public')->download($module->file_path, $module->title);
-}
+    public function approveAccessRequest(Module $module, ModuleAccessRequest $accessRequest, Request $request)
+    {
+        $user = $request->user();
+        abort_unless(in_array($user?->role, ['admin', 'teacher'], true), 403);
+        abort_unless($accessRequest->module_id === $module->id, 404);
+        abort_unless($user->role === 'admin' || $module->uploaded_by === $user->id, 403);
 
-public function disable(Module $module, Request $request)
-{
-    abort_unless(
-        in_array($request->user()?->role, ['admin', 'teacher']),
-        403
-    );
+        $accessRequest->update([
+            'status' => 'approved',
+            'access_code' => Str::upper(Str::random(6)),
+            'approved_at' => now(),
+            'verified_at' => null,
+        ]);
 
-    $module->update([
-        'is_active' => false,
-        'disabled_at' => now(),
-        'disabled_by' => $request->user()->id,
-    ]);
+        $accessRequest->load('student');
+        $accessRequest->student?->notify(new ModuleAccessApprovedNotification($module, $accessRequest));
 
-    return back()->with('success', 'Module disabled successfully.');
-}
+        return back()->with('success', 'Request approved. Give the displayed access code to the student.');
+    }
 
-public function enable(Module $module, Request $request)
-{
-    abort_unless(
-        in_array($request->user()?->role, ['admin', 'teacher']),
-        403
-    );
+    public function denyAccessRequest(Module $module, ModuleAccessRequest $accessRequest, Request $request)
+    {
+        $user = $request->user();
+        abort_unless(in_array($user?->role, ['admin', 'teacher'], true), 403);
+        abort_unless($accessRequest->module_id === $module->id, 404);
+        abort_unless($user->role === 'admin' || $module->uploaded_by === $user->id, 403);
 
-    $module->update([
-        'is_active' => true,
-        'disabled_at' => null,
-        'disabled_by' => null,
-    ]);
+        $accessRequest->delete();
 
-    return back()->with('success', 'Module enabled successfully.');
-}
+        return back()->with('success', 'Access request denied.');
+    }
 
+    public function cancelAccessRequest(Module $module, Request $request)
+    {
+        abort_unless($request->user()?->role === 'student', 403);
 
-public function preview(Module $module)
-{
-    $disk = Storage::disk('public');
+        ModuleAccessRequest::where('module_id', $module->id)
+            ->where('student_id', $request->user()->id)
+            ->where('status', 'pending')
+            ->delete();
 
-    abort_unless($disk->exists($module->file_path), 404);
+        return back()->with('success', 'Access request cancelled.');
+    }
 
-    $path = $disk->path($module->file_path);
-    $mimeType = $disk->mimeType($module->file_path);
+    public function verifyAccess(Module $module, Request $request)
+    {
+        abort_unless($request->user()?->role === 'student', 403);
+        abort_unless($module->is_active, 403, 'This module is currently disabled.');
 
-    return response()->file($path, [
-        'Content-Type' => $mimeType,
-        'Content-Disposition' => 'inline; filename="' . basename($module->file_path) . '"',
-        'X-Content-Type-Options' => 'nosniff',
-    ]);
-}
+        $validated = $request->validate([
+            'access_code' => ['required', 'string', 'size:6'],
+        ]);
 
-public function myDownloads(Request $request): Response
-{
-    $modules = $request->user()
-        ->downloadedModules()
-        ->with('uploader')
-        ->orderByPivot('updated_at', 'desc')
-        ->get();
+        $accessRequest = ModuleAccessRequest::where('module_id', $module->id)
+            ->where('student_id', $request->user()->id)
+            ->where('status', 'approved')
+            ->first();
 
-    return Inertia::render('downloads/index', ['modules' => $modules]);
-}
-public function removeDownload(Module $module, Request $request)
-{
-    $request->user()->downloadedModules()->detach($module->id);
+        if (! $accessRequest || ! hash_equals(
+            Str::upper((string) $accessRequest->access_code),
+            Str::upper(trim($validated['access_code']))
+        )) {
+            return back()->withErrors(['access_code' => 'That access code is invalid. Please ask the uploader to confirm it.']);
+        }
 
-    return back();
-}
+        $accessRequest->update(['verified_at' => now()]);
+
+        return back()->with('success', 'Access granted. You can now preview and download this module.');
+    }
+
+    public function toggleLike(Module $module, Request $request)
+    {
+        $like = ModuleLike::where('module_id', $module->id)
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        $like ? $like->delete() : ModuleLike::create([
+            'module_id' => $module->id,
+            'user_id' => $request->user()->id,
+        ]);
+
+        return back();
+    }
+
+    public function storeFeedback(Module $module, Request $request)
+    {
+        $validated = $request->validate([
+            'comment' => ['required', 'string', 'max:2000'],
+        ]);
+
+        ModuleFeedback::create([
+            'module_id' => $module->id,
+            'user_id' => $request->user()->id,
+            'comment' => $validated['comment'],
+        ]);
+
+        return back()->with('success', 'Feedback submitted.');
+    }
+
+    public function replyToFeedback(Module $module, ModuleFeedback $feedback, Request $request)
+    {
+        $user = $request->user();
+        abort_unless(in_array($user?->role, ['admin', 'teacher'], true), 403);
+        abort_unless($feedback->module_id === $module->id, 404);
+        abort_unless($user->role === 'admin' || $module->uploaded_by === $user->id, 403);
+
+        $validated = $request->validate([
+            'reply' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $feedback->update([
+            'reply' => $validated['reply'],
+            'reply_by' => $user->id,
+            'replied_at' => now(),
+        ]);
+
+        return back()->with('success', 'Reply submitted.');
+    }
+
+    public function download(Module $module, Request $request)
+    {
+        $this->ensureModuleAccess($module, $request);
+
+        $request->user()->downloadedModules()->syncWithoutDetaching([
+            $module->id => ['updated_at' => now()],
+        ]);
+
+        return Storage::disk('public')->download($module->file_path, $module->title);
+    }
+
+    public function preview(Module $module, Request $request)
+    {
+        $this->ensureModuleAccess($module, $request);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($module->file_path), 404);
+
+        return response()->file($disk->path($module->file_path), [
+            'Content-Type' => $disk->mimeType($module->file_path),
+            'Content-Disposition' => 'inline; filename="' . basename($module->file_path) . '"',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function ensureModuleAccess(Module $module, Request $request): void
+    {
+        abort_unless($module->is_active || in_array($request->user()?->role, ['admin', 'teacher'], true), 403);
+
+        if ($request->user()?->role !== 'student') {
+            return;
+        }
+
+        $hasAccess = ModuleAccessRequest::where('module_id', $module->id)
+            ->where('student_id', $request->user()->id)
+            ->where('status', 'approved')
+            ->whereNotNull('verified_at')
+            ->exists();
+
+        abort_unless($hasAccess, 403, 'Enter the access code provided by the uploader first.');
+    }
+
+    public function disable(Module $module, Request $request)
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'teacher'], true), 403);
+
+        $module->update([
+            'is_active' => false,
+            'disabled_at' => now(),
+            'disabled_by' => $request->user()->id,
+        ]);
+
+        return back()->with('success', 'Module disabled successfully.');
+    }
+
+    public function enable(Module $module, Request $request)
+    {
+        abort_unless(in_array($request->user()?->role, ['admin', 'teacher'], true), 403);
+
+        $module->update([
+            'is_active' => true,
+            'disabled_at' => null,
+            'disabled_by' => null,
+        ]);
+
+        return back()->with('success', 'Module enabled successfully.');
+    }
+
+    public function myDownloads(Request $request): Response
+    {
+        $modules = $request->user()
+            ->downloadedModules()
+            ->with('uploader')
+            ->orderByPivot('updated_at', 'desc')
+            ->get();
+
+        return Inertia::render('downloads/index', ['modules' => $modules]);
+    }
+
+    public function removeDownload(Module $module, Request $request)
+    {
+        $request->user()->downloadedModules()->detach($module->id);
+
+        return back();
+    }
+
+    public function markNotificationRead(string $notification, Request $request)
+    {
+        $request->user()->notifications()->whereKey($notification)->firstOrFail()->markAsRead();
+
+        return back();
+    }
+
+    public function deleteNotification(string $notification, Request $request)
+    {
+        $request->user()->notifications()->whereKey($notification)->firstOrFail()->delete();
+
+        return back();
+    }
 }

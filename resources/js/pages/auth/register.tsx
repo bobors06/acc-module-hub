@@ -1,4 +1,5 @@
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -8,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { login } from '@/routes';
 import { store } from '@/routes/register';
-import { useState } from 'react';
 
 type Props = {
     passwordRules: string;
@@ -20,6 +20,7 @@ export default function Register({ passwordRules }: Props) {
     return (
         <>
             <Head title="Register" />
+
             <Form
                 {...store.form()}
                 resetOnSuccess={['password', 'password_confirmation']}
@@ -31,7 +32,13 @@ export default function Register({ passwordRules }: Props) {
                         <div className="grid gap-6">
                             <div className="grid gap-2">
                                 <Label>I am registering as</Label>
-                                <input type="hidden" name="role" value={role} />
+
+                                <input
+                                    type="hidden"
+                                    name="role"
+                                    value={role}
+                                />
+
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
@@ -44,6 +51,7 @@ export default function Register({ passwordRules }: Props) {
                                     >
                                         Student
                                     </button>
+
                                     <button
                                         type="button"
                                         onClick={() => setRole('teacher')}
@@ -56,11 +64,13 @@ export default function Register({ passwordRules }: Props) {
                                         Teacher
                                     </button>
                                 </div>
+
                                 <InputError message={errors.role} />
                             </div>
 
                             <div className="grid gap-2">
                                 <Label htmlFor="name">Name</Label>
+
                                 <Input
                                     id="name"
                                     type="text"
@@ -71,6 +81,7 @@ export default function Register({ passwordRules }: Props) {
                                     name="name"
                                     placeholder="Full name"
                                 />
+
                                 <InputError
                                     message={errors.name}
                                     className="mt-2"
@@ -78,7 +89,10 @@ export default function Register({ passwordRules }: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Email address</Label>
+                                <Label htmlFor="email">
+                                    Email address
+                                </Label>
+
                                 <Input
                                     id="email"
                                     type="email"
@@ -88,20 +102,85 @@ export default function Register({ passwordRules }: Props) {
                                     name="email"
                                     placeholder="email@example.com"
                                 />
+
                                 <InputError message={errors.email} />
                             </div>
 
+                            {role === 'student' && (
+                                <>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="student_id">
+                                            Student ID
+                                        </Label>
+
+                                        <Input
+                                            id="student_id"
+                                            type="text"
+                                            required
+                                            tabIndex={3}
+                                            name="student_id"
+                                            placeholder="Student ID"
+                                        />
+
+                                        <InputError
+                                            message={errors.student_id}
+                                        />
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="year_level">
+                                            Year level
+                                        </Label>
+
+                                        <select
+                                            id="year_level"
+                                            name="year_level"
+                                            required
+                                            tabIndex={4}
+                                            defaultValue=""
+                                            className="rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                        >
+                                            <option value="" disabled>
+                                                Select your year level
+                                            </option>
+
+                                            <option value="1st Year">
+                                                1st Year
+                                            </option>
+
+                                            <option value="2nd Year">
+                                                2nd Year
+                                            </option>
+
+                                            <option value="3rd Year">
+                                                3rd Year
+                                            </option>
+
+                                            <option value="4th Year">
+                                                4th Year
+                                            </option>
+                                        </select>
+
+                                        <InputError
+                                            message={errors.year_level}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
                             <div className="grid gap-2">
                                 <Label htmlFor="password">Password</Label>
+
                                 <PasswordInput
                                     id="password"
                                     required
-                                    tabIndex={3}
+                                    tabIndex={5}
                                     autoComplete="new-password"
                                     name="password"
                                     placeholder="Password"
                                     passwordrules={passwordRules}
                                 />
+
                                 <InputError message={errors.password} />
                             </div>
 
@@ -109,15 +188,17 @@ export default function Register({ passwordRules }: Props) {
                                 <Label htmlFor="password_confirmation">
                                     Confirm password
                                 </Label>
+
                                 <PasswordInput
                                     id="password_confirmation"
                                     required
-                                    tabIndex={4}
+                                    tabIndex={6}
                                     autoComplete="new-password"
                                     name="password_confirmation"
                                     placeholder="Confirm password"
                                     passwordrules={passwordRules}
                                 />
+
                                 <InputError
                                     message={errors.password_confirmation}
                                 />
@@ -126,7 +207,7 @@ export default function Register({ passwordRules }: Props) {
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={5}
+                                tabIndex={7}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -136,7 +217,7 @@ export default function Register({ passwordRules }: Props) {
 
                         <div className="text-muted-foreground text-center text-sm">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={6}>
+                            <TextLink href={login()} tabIndex={8}>
                                 Log in
                             </TextLink>
                         </div>
