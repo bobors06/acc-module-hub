@@ -1,19 +1,18 @@
-import AppLogoIcon from '@/components/app-logo-icon';
+import { AccModuleHubLogo } from '@/components/acc-module-hub-logo';
 
 export default function AppLogo() {
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-full border border-black/5 bg-white text-primary shadow-sm">
-                <AppLogoIcon className="size-5" />
-            </div>
+            <AccModuleHubLogo className="size-9" />
             <div className="ml-1 grid flex-1 text-left text-sm">
                 <span className="truncate font-semibold leading-tight text-current">
-                    Students Learning and Module Repository
+                    ACC Module Hub
                 </span>
                 <span className="truncate text-xs leading-tight text-current opacity-70">
-                    Learning Repository
+                    Abuyog Community College
                 </span>
             </div>
+            <img src="/images/acc-logo.jpg" alt="Abuyog Community College" className="size-8 rounded-full object-cover" />
         </>
     );
 }

@@ -18,6 +18,9 @@ trait ProfileValidationRules
         return [
             'name' => $this->nameRules(),
             'email' => $this->emailRules($userId),
+            'student_id' => ['nullable', 'string', 'max:255'],
+            'year_level' => ['nullable', 'in:1st Year,2nd Year,3rd Year,4th Year'],
+            'profile_picture' => ['nullable', 'image', 'max:5120'],
         ];
     }
 

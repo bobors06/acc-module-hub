@@ -10,6 +10,8 @@ import {
     Upload,
 } from 'lucide-react';
 import { login, register } from '@/routes';
+import { AccFooter } from '@/components/acc-footer';
+import { AccModuleHubLogo } from '@/components/acc-module-hub-logo';
 
 export default function Welcome() {
     return (
@@ -19,11 +21,7 @@ export default function Welcome() {
             <main className="relative min-h-screen overflow-hidden bg-slate-950">
                 {/* Background image */}
                 <div className="absolute inset-0">
-                    <img
-                        src="/images/module-bg.jpg"
-                        alt=""
-                        className="h-full w-full object-cover"
-                    />
+                    <div className="h-full w-full bg-gradient-to-br from-[#1d284c] via-[#263b72] to-slate-950" />
                     <div className="absolute inset-0 bg-slate-950/90" />
                     <div className="absolute inset-0 bg-gradient-to-b from-[#18234b]/90 via-[#18234b]/75 to-slate-950/95" />
                 </div>
@@ -32,9 +30,8 @@ export default function Welcome() {
                     {/* Header */}
                     <header className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-6 lg:px-10">
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#1d284c] shadow-lg">
-                                <GraduationCap className="h-6 w-6" />
-                            </div>
+                            <AccModuleHubLogo className="h-12 w-12" />
+                            <img src="/images/acc-logo.jpg" alt="Abuyog Community College" className="h-10 w-10 rounded-full object-cover ring-2 ring-white/60" />
 
                             <div>
                                 <div className="text-sm font-bold tracking-wide text-white">
@@ -273,9 +270,7 @@ export default function Welcome() {
                     </section>
 
                     {/* Footer */}
-                    <footer className="bg-slate-950 px-6 py-6 text-center text-sm text-slate-400">
-                        © {new Date().getFullYear()} ACC Module Hub · Abuyog Community College
-                    </footer>
+                    <AccFooter className="border-slate-800 bg-slate-950 text-slate-400" />
                 </div>
             </main>
         </>

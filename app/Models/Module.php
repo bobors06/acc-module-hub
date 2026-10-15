@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Module extends Model
 {
@@ -11,6 +12,7 @@ class Module extends Model
         'title',
         'subject',
         'year_level',
+        'uploaded_by',
         'file_type',
         'file_size',
         'file_path',
@@ -36,5 +38,20 @@ class Module extends Model
     public function disabledBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'disabled_by');
+    }
+
+    public function accessRequests(): HasMany
+    {
+        return $this->hasMany(ModuleAccessRequest::class);
+    }
+
+    public function likes(): HasMany
+    {
+        return $this->hasMany(ModuleLike::class);
+    }
+
+    public function feedback(): HasMany
+    {
+        return $this->hasMany(ModuleFeedback::class)->latest();
     }
 }

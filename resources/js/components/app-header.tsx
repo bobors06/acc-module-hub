@@ -1,7 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
-import { BookOpen, Download, Folder, LayoutGrid, Menu, Search, Upload } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { BarChart3, Bell, Download, LayoutGrid, Menu, Trash2, Upload } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import AppLogoIcon from '@/components/app-logo-icon';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -23,15 +22,10 @@ import {
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { useInitials } from '@/hooks/use-initials';
-import { cn, toUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem, NavItem } from '@/types';
 
@@ -44,29 +38,22 @@ const baseNavItems: NavItem[] = [
     { title: 'My Downloads', href: '/downloads', icon: Download },
 ];
 
-const rightNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: Folder,
-    },
-    {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
-    },
-];
-
 export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage();
     const { auth } = page.props as any;
+    const { notifications = [], unreadNotificationsCount = 0 } = page.props as any;
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 
-    const mainNavItems: NavItem[] =
-    ['admin', 'teacher'].includes(auth.user?.role)
-        ? [...baseNavItems, { title: 'Upload Module', href: '/modules/create', icon: Upload }]
-        : baseNavItems;
+    const mainNavItems: NavItem[] = [
+        ...baseNavItems,
+        ...(['admin', 'teacher'].includes(auth.user?.role)
+            ? [{ title: 'Upload Module', href: '/modules/create', icon: Upload }]
+            : []),
+        ...(['admin', 'teacher'].includes(auth.user?.role)
+            ? [{ title: 'Analytics', href: '/analytics', icon: BarChart3 }]
+            : []),
+    ];
 
     return (
         <>
@@ -92,7 +79,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                     Navigation menu
                                 </SheetTitle>
                                 <SheetHeader className="flex justify-start text-left">
-                                    <AppLogoIcon className="h-6 w-6 text-foreground" />
+                                    <img src="/images/acc-module-hub-logo.png" alt="ACC Module Hub" className="h-8 w-8 object-contain" />
                                 </SheetHeader>
                                 <div className="flex h-full flex-1 flex-col space-y-4 p-4">
                                     <div className="flex h-full flex-col justify-between text-sm">
@@ -111,22 +98,6 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                             ))}
                                         </div>
 
-                                        <div className="flex flex-col space-y-4">
-                                            {rightNavItems.map((item) => (
-                                                <a
-                                                    key={item.title}
-                                                    href={toUrl(item.href)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="flex items-center space-x-2 font-medium"
-                                                >
-                                                    {item.icon && (
-                                                        <item.icon className="h-5 w-5" />
-                                                    )}
-                                                    <span>{item.title}</span>
-                                                </a>
-                                            ))}
-                                        </div>
                                     </div>
                                 </div>
                             </SheetContent>
@@ -173,39 +144,49 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
 
                     <div className="ml-auto flex items-center space-x-2">
-                        <div className="relative flex items-center space-x-1">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="group h-9 w-9 cursor-pointer text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
-                            >
-                                <Search className="!size-5 opacity-80 group-hover:opacity-100" />
-                            </Button>
-                            <div className="ml-1 hidden gap-1 lg:flex">
-                                {rightNavItems.map((item) => (
-                                    <Tooltip key={item.title}>
-                                        <TooltipTrigger>
-                                            <a
-                                                href={toUrl(item.href)}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="group text-primary-foreground/80 ring-offset-background inline-flex h-9 w-9 items-center justify-center rounded-md bg-transparent p-0 text-sm font-medium transition-colors hover:bg-white/10 hover:text-primary-foreground focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="relative h-9 w-9 text-primary-foreground hover:bg-white/10 hover:text-primary-foreground"
+                                    aria-label="Notifications"
+                                >
+                                    <Bell className="size-5" />
+                                    {unreadNotificationsCount > 0 && (
+                                        <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white">
+                                            {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                                        </span>
+                                    )}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-80">
+                                <div className="border-b px-3 py-2 text-sm font-semibold">Notifications</div>
+                                <div className="max-h-72 overflow-y-auto p-1">
+                                    {notifications.length === 0 ? (
+                                        <p className="px-2 py-4 text-xs text-muted-foreground">No notifications.</p>
+                                    ) : notifications.map((notification: any) => (
+                                        <div key={notification.id} className={`flex items-start gap-2 rounded-md p-2 text-xs ${notification.read_at ? 'text-muted-foreground' : 'bg-primary/5 text-foreground'}`}>
+                                            <button
+                                                type="button"
+                                                className="min-w-0 flex-1 text-left"
+                                                onClick={() => !notification.read_at && router.patch(`/notifications/${notification.id}/read`, {})}
                                             >
-                                                <span className="sr-only">
-                                                    {item.title}
-                                                </span>
-                                                {item.icon && (
-                                                    <item.icon className="size-5 opacity-80 group-hover:opacity-100" />
-                                                )}
-                                            </a>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{item.title}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                ))}
-                            </div>
-                        </div>
+                                                {notification.data?.message ?? 'You have a new notification.'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="shrink-0 rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+                                                aria-label="Delete notification"
+                                                onClick={() => router.delete(`/notifications/${notification.id}`)}
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button

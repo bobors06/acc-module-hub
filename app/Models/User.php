@@ -27,10 +27,12 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
-#[Fillable(['name', 'email', 'password', 'role', 'student_id', 'year_level'])]
+#[Fillable(['name', 'email', 'password', 'role', 'student_id', 'year_level', 'profile_picture'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements PasskeyUser
 {
+    protected $appends = ['avatar'];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
@@ -51,5 +53,36 @@ class User extends Authenticatable implements PasskeyUser
     public function downloadedModules()
     {
         return $this->belongsToMany(Module::class, 'downloads')->withTimestamps();
+    }
+
+    public function moduleAccessRequests()
+    {
+        return $this->hasMany(ModuleAccessRequest::class, 'student_id');
+    }
+
+    public function uploadedModules()
+    {
+        return $this->hasMany(Module::class, 'uploaded_by');
+    }
+
+    public function moduleLikes()
+    {
+        return $this->hasMany(ModuleLike::class);
+    }
+
+    public function moduleFeedback()
+    {
+        return $this->hasMany(ModuleFeedback::class);
+    }
+
+    public function getAvatarAttribute(): ?string
+    {
+        if (! $this->profile_picture) {
+            return null;
+        }
+
+        $version = $this->updated_at?->timestamp ?? time();
+
+        return route('profile.picture') . '?v=' . $version;
     }
 }
