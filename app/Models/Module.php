@@ -12,6 +12,7 @@ class Module extends Model
         'title',
         'subject',
         'year_level',
+        'uploaded_by',
         'file_type',
         'file_size',
         'file_path',

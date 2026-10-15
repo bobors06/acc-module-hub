@@ -2,6 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { dashboard } from '@/routes';
 import Chatbox from '@/components/chatbox';
+import ModuleOfficePreview from '@/components/module-office-preview';
 import { Download, Eye, FileText, FolderOpen, Heart, LockKeyhole, MessageCircle, Power, X } from 'lucide-react';
 
 const years = ['All', '1st Year', '2nd Year', '3rd Year', '4th Year'];
@@ -79,8 +80,14 @@ export default function Dashboard() {
         setPreviewModule(module);
     };
 
+    const getFileExtension = (module: ModuleType) =>
+        module.file_type.toLowerCase().replace(/^\./, '').split('/').pop() ?? '';
+
     const isDirectPreviewable = (module: ModuleType) =>
-        ['pdf', 'txt', 'text', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(module.file_type.toLowerCase());
+        ['pdf', 'txt', 'text', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(getFileExtension(module));
+
+    const isOfficePreviewable = (module: ModuleType) =>
+        ['docx', 'pptx', 'xls', 'xlsx'].includes(getFileExtension(module));
 
     const submitAccessCode = () => {
         if (!accessModule || accessCode.length !== 6) return;
@@ -379,12 +386,21 @@ export default function Dashboard() {
                         </div>
                         <div className="min-h-[400px] flex-1 overflow-y-auto bg-muted/30 p-4">
                             {isDirectPreviewable(previewModule) ? (
-                                <iframe src={`/modules/${previewModule.id}/preview`} title={`Preview of ${previewModule.title}`} className="h-[65vh] w-full rounded-md border border-border bg-white" />
+                                <iframe
+                                    src={`/modules/${previewModule.id}/preview`}
+                                    title={`Preview of ${previewModule.title}`}
+                                    className="h-[65vh] w-full rounded-md border border-border bg-white"
+                                />
+                            ) : isOfficePreviewable(previewModule) ? (
+                                <ModuleOfficePreview
+                                    url={`/modules/${previewModule.id}/preview`}
+                                    extension={getFileExtension(previewModule)}
+                                />
                             ) : (
                                 <div className="flex h-[30vh] flex-col items-center justify-center gap-2 rounded-md border border-border bg-background text-center">
                                     <FileText className="size-10 text-muted-foreground" />
                                     <p className="font-medium">In-app preview is not available for this file type.</p>
-                                    <p className="text-sm text-muted-foreground">The Preview button will not download it. Use Download if you want to open it in a compatible application.</p>
+                                    <p className="text-sm text-muted-foreground">Use Download to open this file in a compatible application.</p>
                                 </div>
                             )}
 

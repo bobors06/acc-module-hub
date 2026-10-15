@@ -295,9 +295,27 @@ class ModuleController extends Controller
         $disk = Storage::disk('public');
         abort_unless($disk->exists($module->file_path), 404);
 
+        $extension = strtolower(pathinfo($module->file_path, PATHINFO_EXTENSION));
+        $mimeType = $disk->mimeType($module->file_path) ?: 'application/octet-stream';
+
+        if ($mimeType === 'application/octet-stream') {
+            $mimeType = match ($extension) {
+                'pdf' => 'application/pdf',
+                'txt', 'text' => 'text/plain; charset=utf-8',
+                'png' => 'image/png',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                'svg' => 'image/svg+xml',
+                'bmp' => 'image/bmp',
+                default => $mimeType,
+            };
+        }
+
         return response()->file($disk->path($module->file_path), [
-            'Content-Type' => $disk->mimeType($module->file_path),
+            'Content-Type' => $mimeType,
             'Content-Disposition' => 'inline; filename="' . basename($module->file_path) . '"',
+            'Cache-Control' => 'private, max-age=0, must-revalidate',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

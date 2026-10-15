@@ -23,13 +23,24 @@ class AnalyticsController extends Controller
         $totalFeedback = DB::table('module_feedback')->count();
 
         $topModules = Module::query()
-            ->withCount(['likes', 'feedback'])
             ->select('modules.id', 'modules.title', 'modules.subject', 'modules.year_level')
             ->selectSub(
                 DB::table('downloads')
                     ->selectRaw('COUNT(*)')
                     ->whereColumn('downloads.module_id', 'modules.id'),
                 'downloads_count'
+            )
+            ->selectSub(
+                DB::table('module_likes')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('module_likes.module_id', 'modules.id'),
+                'likes_count'
+            )
+            ->selectSub(
+                DB::table('module_feedback')
+                    ->selectRaw('COUNT(*)')
+                    ->whereColumn('module_feedback.module_id', 'modules.id'),
+                'feedback_count'
             )
             ->orderByDesc('downloads_count')
             ->orderByDesc('likes_count')

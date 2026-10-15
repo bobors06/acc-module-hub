@@ -20,7 +20,7 @@ export default function ModuleCreate() {
 
                 <div className="mb-6 rounded-lg border border-border bg-muted/40 p-3 text-sm">
                     <div className="font-semibold">Supported files</div>
-                    <p className="mt-1 text-muted-foreground">PDF, Word, PowerPoint, Excel, images, and TXT files are accepted. PDF, image, and TXT files can be previewed in the browser.</p>
+                    <p className="mt-1 text-muted-foreground">PDF, DOCX, PPTX, XLS/XLSX, images, and TXT files can be previewed in the browser. Legacy DOC and PPT files can still be downloaded but need conversion to a modern format for in-browser preview.</p>
                 </div>
 
                 <Form action="/modules" method="post" encType="multipart/form-data" className="flex flex-col gap-5">
