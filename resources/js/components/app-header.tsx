@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bell, Download, LayoutGrid, Menu, Trash2, Upload } from 'lucide-react';
+import { BarChart3, Bell, Download, LayoutGrid, Menu, Trash2, Upload } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -45,10 +45,15 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const getInitials = useInitials();
     const { isCurrentUrl, whenCurrentUrl } = useCurrentUrl();
 
-    const mainNavItems: NavItem[] =
-    ['admin', 'teacher'].includes(auth.user?.role)
-        ? [...baseNavItems, { title: 'Upload Module', href: '/modules/create', icon: Upload }]
-        : baseNavItems;
+    const mainNavItems: NavItem[] = [
+        ...baseNavItems,
+        ...(['admin', 'teacher'].includes(auth.user?.role)
+            ? [{ title: 'Upload Module', href: '/modules/create', icon: Upload }]
+            : []),
+        ...(['admin', 'teacher'].includes(auth.user?.role)
+            ? [{ title: 'Analytics', href: '/analytics', icon: BarChart3 }]
+            : []),
+    ];
 
     return (
         <>

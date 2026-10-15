@@ -1,12 +1,16 @@
 <?php
 
 use App\Http\Controllers\ModuleController;
+use App\Http\Controllers\AnalyticsController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [ModuleController::class, 'index'])->name('dashboard');
+    Route::get('analytics', [AnalyticsController::class, 'index'])
+        ->middleware('can-manage-modules')
+        ->name('analytics.index');
     Route::get('modules/{module}/preview', [ModuleController::class, 'preview'])->name('modules.preview');
     Route::get('modules/{module}/download', [ModuleController::class, 'download'])->name('modules.download');
     Route::post('modules/{module}/access-request', [ModuleController::class, 'requestAccess'])->name('modules.access.request');

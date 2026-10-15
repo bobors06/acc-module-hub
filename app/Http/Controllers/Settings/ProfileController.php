@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,6 +24,25 @@ class ProfileController extends Controller
         return Inertia::render('settings/profile', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => $request->session()->get('status'),
+        ]);
+    }
+
+    /**
+     * Stream the authenticated user's profile picture.
+     */
+    public function picture(Request $request): BinaryFileResponse
+    {
+        $user = $request->user();
+
+        abort_unless($user?->profile_picture, 404);
+
+        $disk = Storage::disk('public');
+        abort_unless($disk->exists($user->profile_picture), 404);
+
+        return response()->file($disk->path($user->profile_picture), [
+            'Content-Type' => $disk->mimeType($user->profile_picture),
+            'Content-Disposition' => 'inline; filename="profile-picture"',
+            'Cache-Control' => 'private, max-age=0, must-revalidate',
         ]);
     }
 

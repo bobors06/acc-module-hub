@@ -77,8 +77,12 @@ class User extends Authenticatable implements PasskeyUser
 
     public function getAvatarAttribute(): ?string
     {
-        return $this->profile_picture
-            ? asset('storage/' . ltrim($this->profile_picture, '/'))
-            : null;
+        if (! $this->profile_picture) {
+            return null;
+        }
+
+        $version = $this->updated_at?->timestamp ?? time();
+
+        return route('profile.picture') . '?v=' . $version;
     }
 }
