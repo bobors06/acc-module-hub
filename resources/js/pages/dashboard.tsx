@@ -1,7 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import { dashboard } from '@/routes';
-import Chatbox from '@/components/chatbox';
 import ModuleOfficePreview from '@/components/module-office-preview';
 import { Download, Eye, FileText, FolderOpen, Heart, LockKeyhole, MessageCircle, Power, X } from 'lucide-react';
 
@@ -257,8 +256,6 @@ export default function Dashboard() {
                     </div>
                 )}
             </div>
-
-            <Chatbox />
 
             {accessModule && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setAccessModule(null)}>

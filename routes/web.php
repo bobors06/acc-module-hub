@@ -2,11 +2,12 @@
 
 use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\AnalyticsController;
+use App\Http\Controllers\Admin\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'active-account'])->group(function () {
     Route::get('dashboard', [ModuleController::class, 'index'])->name('dashboard');
     Route::get('analytics', [AnalyticsController::class, 'index'])
         ->middleware('can-manage-modules')
@@ -45,8 +46,15 @@ Route::patch(
         'modules/{module}/access-requests/{accessRequest}',
         [ModuleController::class, 'denyAccessRequest']
     )->name('modules.access.deny');
+    });
+
+    Route::middleware('admin-only')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('users', [UserManagementController::class, 'index'])->name('users.index');
+        Route::patch('users/{user}/role', [UserManagementController::class, 'updateRole'])->name('users.role');
+        Route::patch('users/{user}/deactivate', [UserManagementController::class, 'deactivate'])->name('users.deactivate');
+        Route::patch('users/{user}/activate', [UserManagementController::class, 'activate'])->name('users.activate');
+    });
 });
-});     
 
 
 

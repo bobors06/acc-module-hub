@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, Download, LayoutGrid, Menu, Trash2, Upload } from 'lucide-react';
+import { BarChart3, Bell, Download, LayoutGrid, Menu, Trash2, Upload, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -52,6 +52,9 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
             : []),
         ...(['admin', 'teacher'].includes(auth.user?.role)
             ? [{ title: 'Analytics', href: '/analytics', icon: BarChart3 }]
+            : []),
+        ...(auth.user?.role === 'admin'
+            ? [{ title: 'User Management', href: '/admin/users', icon: Users }]
             : []),
     ];
 
