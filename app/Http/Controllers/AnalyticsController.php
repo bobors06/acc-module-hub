@@ -42,9 +42,6 @@ class AnalyticsController extends Controller
                     ->whereColumn('module_feedback.module_id', 'modules.id'),
                 'feedback_count'
             )
-            ->orderByDesc('downloads_count')
-            ->orderByDesc('likes_count')
-            ->limit(10)
             ->get()
             ->map(fn (Module $module) => [
                 'id' => $module->id,
@@ -58,6 +55,8 @@ class AnalyticsController extends Controller
                     + (int) $module->likes_count
                     + (int) $module->feedback_count,
             ])
+            ->sortByDesc('engagement_count')
+            ->take(10)
             ->values();
 
         $yearBreakdown = DB::table('modules')

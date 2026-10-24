@@ -63,6 +63,7 @@ function MetricCard({
 
 export default function Analytics() {
     const { summary, topModules, yearBreakdown } = usePage().props as unknown as AnalyticsProps;
+    const highestEngagement = Math.max(...topModules.map((module) => module.engagement_count), 1);
 
     return (
         <>
@@ -138,23 +139,31 @@ export default function Analytics() {
                     ) : (
                         <div className="grid gap-3">
                             {topModules.map((module, index) => (
-                                <div key={module.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-4">
-                                    <div className="flex min-w-0 items-start gap-3">
-                                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
-                                            {index + 1}
-                                        </span>
-                                        <div className="min-w-0">
-                                            <h3 className="truncate font-medium">{module.title}</h3>
-                                            <p className="mt-1 text-xs text-muted-foreground">
-                                                {module.subject} · {module.year_level}
-                                            </p>
+                                <div key={module.id} className="rounded-lg border border-border p-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div className="flex min-w-0 items-start gap-3">
+                                            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                                                {index + 1}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <h3 className="truncate font-medium">{module.title}</h3>
+                                                <p className="mt-1 text-xs text-muted-foreground">
+                                                    {module.subject} · {module.year_level}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                            <span><Download className="mr-1 inline size-3.5" />{module.downloads_count}</span>
+                                            <span><Heart className="mr-1 inline size-3.5" />{module.likes_count}</span>
+                                            <span><MessageCircle className="mr-1 inline size-3.5" />{module.feedback_count}</span>
+                                            <strong className="text-foreground">{module.engagement_count} total</strong>
                                         </div>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                                        <span><Download className="mr-1 inline size-3.5" />{module.downloads_count}</span>
-                                        <span><Heart className="mr-1 inline size-3.5" />{module.likes_count}</span>
-                                        <span><MessageCircle className="mr-1 inline size-3.5" />{module.feedback_count}</span>
-                                        <strong className="text-foreground">{module.engagement_count} total</strong>
+                                    <div className="mt-4 h-2.5 w-full overflow-hidden rounded-full bg-muted" aria-label={`${module.engagement_count} engagement points`}>
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-all"
+                                            style={{ width: `${module.engagement_count > 0 ? Math.max((module.engagement_count / highestEngagement) * 100, 4) : 0}%` }}
+                                        />
                                     </div>
                                 </div>
                             ))}
