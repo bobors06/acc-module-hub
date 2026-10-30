@@ -20,6 +20,8 @@ class ModuleController extends Controller
     {
         $user = $request->user();
         $selectedYear = trim((string) $request->query('year_level', ''));
+        $search = trim((string) $request->query('search', ''));
+        $myUploads = $request->boolean('my_uploads');
         $with = ['uploader', 'likes', 'feedback.user', 'feedback.replyBy'];
 
         if ($user?->role === 'student') {
@@ -31,7 +33,23 @@ class ModuleController extends Controller
         $modules = Module::with($with)
             ->when(
                 $user?->role === 'student',
-                fn ($query) => $query->where('is_active', true)
+                function ($query) use ($user) {
+                    $studentYear = Str::lower(trim((string) $user->year_level));
+
+                    return $query
+                        ->where('is_active', true)
+                        ->where(function ($audienceQuery) use ($studentYear) {
+                            $audienceQuery
+                                ->whereRaw("LOWER(TRIM(year_level)) IN ('all', 'all students')")
+                                ->when(
+                                    $studentYear !== '',
+                                    fn ($query) => $query->orWhereRaw(
+                                        'LOWER(TRIM(year_level)) = ?',
+                                        [$studentYear]
+                                    )
+                                );
+                        });
+                }
             )
             ->when(
                 $selectedYear !== '' && Str::lower($selectedYear) !== 'all',
@@ -39,6 +57,24 @@ class ModuleController extends Controller
                     'LOWER(TRIM(year_level)) = ?',
                     [Str::lower($selectedYear)]
                 )
+            )
+            ->when(
+                $search !== '',
+                function ($query) use ($search) {
+                    $term = '%' . Str::lower($search) . '%';
+
+                    return $query->where(function ($searchQuery) use ($term) {
+                        $searchQuery
+                            ->whereRaw('LOWER(title) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(subject) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(year_level) LIKE ?', [$term])
+                            ->orWhereHas('uploader', fn ($uploaderQuery) => $uploaderQuery->whereRaw('LOWER(name) LIKE ?', [$term]));
+                    });
+                }
+            )
+            ->when(
+                $myUploads && in_array($user?->role, ['admin', 'teacher'], true),
+                fn ($query) => $query->where('uploaded_by', $user->id)
             )
             ->latest()
             ->get();
@@ -89,7 +125,10 @@ class ModuleController extends Controller
 
         return Inertia::render('dashboard', [
             'modules' => $modules,
-            'filters' => $request->only('year_level'),
+            'filters' => [
+                ...$request->only(['year_level', 'search']),
+                'my_uploads' => $myUploads && in_array($user?->role, ['admin', 'teacher'], true),
+            ],
             'notifications' => $user->notifications()->latest()->limit(20)->get(),
             'unreadNotificationsCount' => $user->unreadNotifications()->count(),
         ]);
@@ -138,6 +177,7 @@ class ModuleController extends Controller
     {
         abort_unless($request->user()?->role === 'student', 403);
         abort_unless($module->is_active, 403, 'This module is currently disabled.');
+        $this->ensureStudentAudience($module, $request);
 
         $accessRequest = ModuleAccessRequest::updateOrCreate(
             [
@@ -206,6 +246,7 @@ class ModuleController extends Controller
     {
         abort_unless($request->user()?->role === 'student', 403);
         abort_unless($module->is_active, 403, 'This module is currently disabled.');
+        $this->ensureStudentAudience($module, $request);
 
         $validated = $request->validate([
             'access_code' => ['required', 'string', 'size:6'],
@@ -328,6 +369,8 @@ class ModuleController extends Controller
             return;
         }
 
+        $this->ensureStudentAudience($module, $request);
+
         $hasAccess = ModuleAccessRequest::where('module_id', $module->id)
             ->where('student_id', $request->user()->id)
             ->where('status', 'approved')
@@ -335,6 +378,19 @@ class ModuleController extends Controller
             ->exists();
 
         abort_unless($hasAccess, 403, 'Enter the access code provided by the uploader first.');
+    }
+
+    private function ensureStudentAudience(Module $module, Request $request): void
+    {
+        $studentYear = Str::lower(trim((string) $request->user()?->year_level));
+        $moduleAudience = Str::lower(trim((string) $module->year_level));
+
+        abort_unless(
+            in_array($moduleAudience, ['all', 'all students'], true)
+                || ($studentYear !== '' && $moduleAudience === $studentYear),
+            403,
+            'This module is not assigned to your year level.'
+        );
     }
 
     public function disable(Module $module, Request $request)

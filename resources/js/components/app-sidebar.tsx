@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Download, LayoutGrid, Upload, Users } from 'lucide-react';
+import { Download, FolderUp, LayoutGrid, Upload, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -22,6 +22,7 @@ const mainNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
     { title: 'Upload Module', href: '/modules/create', icon: Upload },
+    { title: 'My Uploads', href: '/dashboard?my_uploads=1', icon: FolderUp },
 ];
 
 const administratorNavItems: NavItem[] = [

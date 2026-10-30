@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { BarChart3, Bell, Download, LayoutGrid, Menu, Trash2, Upload, Users } from 'lucide-react';
+import { BarChart3, Bell, Download, FolderUp, LayoutGrid, Menu, Trash2, Upload, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,6 +49,9 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
         ...baseNavItems,
         ...(['admin', 'teacher'].includes(auth.user?.role)
             ? [{ title: 'Upload Module', href: '/modules/create', icon: Upload }]
+            : []),
+        ...(['admin', 'teacher'].includes(auth.user?.role)
+            ? [{ title: 'My Uploads', href: '/dashboard?my_uploads=1', icon: FolderUp }]
             : []),
         ...(['admin', 'teacher'].includes(auth.user?.role)
             ? [{ title: 'Analytics', href: '/analytics', icon: BarChart3 }]

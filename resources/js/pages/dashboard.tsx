@@ -1,8 +1,8 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { dashboard } from '@/routes';
 import ModuleOfficePreview from '@/components/module-office-preview';
-import { Download, Eye, FileText, FolderOpen, Heart, LockKeyhole, MessageCircle, Power, X } from 'lucide-react';
+import { Download, Eye, FileText, FolderOpen, Heart, LockKeyhole, MessageCircle, Power, Search, X } from 'lucide-react';
 
 const years = ['All', '1st Year', '2nd Year', '3rd Year', '4th Year'];
 
@@ -57,7 +57,9 @@ export default function Dashboard() {
     const user = auth.user;
     const isStudent = user?.role === 'student';
     const canManageModules = ['admin', 'teacher'].includes(user?.role);
+    const isMyUploads = canManageModules && Boolean(filters?.my_uploads);
     const list: ModuleType[] = modules ?? [];
+    const [search, setSearch] = useState(filters?.search ?? '');
 
     const [previewModule, setPreviewModule] = useState<ModuleType | null>(null);
     const [accessModule, setAccessModule] = useState<ModuleType | null>(null);
@@ -65,6 +67,20 @@ export default function Dashboard() {
     const [accessCode, setAccessCode] = useState('');
     const [feedbackText, setFeedbackText] = useState('');
     const [replyTexts, setReplyTexts] = useState<Record<number, string>>({});
+
+    const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        router.get(
+            '/dashboard',
+            {
+                year_level: filters?.year_level,
+                search: search.trim() || undefined,
+                my_uploads: isMyUploads ? '1' : undefined,
+            },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
 
     const needsAccess = (module: ModuleType) =>
         isStudent && module.access_status !== 'verified';
@@ -106,14 +122,47 @@ export default function Dashboard() {
                             Welcome back, {user?.name}
                         </div>
                         <h1 className="text-2xl font-bold">
-                            Pick up where you left off{user?.year_level ? ` in your ${user.year_level} modules` : ''}.
+                            {isMyUploads
+                                ? 'My Uploads'
+                                : `Pick up where you left off${user?.year_level ? ` in your ${user.year_level} modules` : ''}.`}
                         </h1>
+                        {isMyUploads && (
+                            <p className="mt-1 text-sm text-muted-foreground">Modules uploaded by you.</p>
+                        )}
                     </div>
                     <div className="text-right">
                         <div className="text-2xl font-bold">{list.length}</div>
                         <div className="text-xs text-muted-foreground">modules available to you</div>
                     </div>
                 </div>
+
+                <form onSubmit={submitSearch} className="flex w-full max-w-2xl items-center gap-2">
+                    <div className="relative flex-1">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="search"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
+                            placeholder="Search modules by title, subject, year level, or uploader..."
+                            aria-label="Search modules"
+                            className="h-10 w-full rounded-md border border-border bg-background pl-10 pr-4 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        />
+                    </div>
+                    <button type="submit" className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+                        Search
+                    </button>
+                    {(filters?.search || isMyUploads) && (
+                        <Link
+                            href={isMyUploads ? '/dashboard?my_uploads=1' : filters?.year_level ? `/dashboard?year_level=${encodeURIComponent(filters.year_level)}` : '/dashboard'}
+                            preserveState
+                            preserveScroll
+                            className="flex h-10 items-center gap-1 rounded-md border border-border px-3 text-sm text-muted-foreground hover:bg-muted"
+                        >
+                            <X className="size-4" />
+                            {isMyUploads ? 'All Modules' : 'Clear'}
+                        </Link>
+                    )}
+                </form>
 
                 <div className="flex flex-wrap gap-2">
                     {years.map((year) => {
@@ -123,7 +172,9 @@ export default function Dashboard() {
                         return (
                             <Link
                                 key={year}
-                                href={isAll ? '/dashboard' : `/dashboard?year_level=${encodeURIComponent(year)}`}
+                                href={isAll
+                                    ? (isMyUploads ? '/dashboard?my_uploads=1' : '/dashboard')
+                                    : `/dashboard?year_level=${encodeURIComponent(year)}${isMyUploads ? '&my_uploads=1' : ''}`}
                                 className={`rounded-full border px-4 py-1.5 text-sm ${
                                     isActive
                                         ? 'border-primary bg-primary text-primary-foreground'
