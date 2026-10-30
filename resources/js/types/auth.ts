@@ -3,6 +3,9 @@ export type User = {
     name: string;
     email: string;
     avatar?: string;
+    student_id?: string | null;
+    year_level?: string | null;
+    profile_picture?: string | null;
     email_verified_at: string | null;
     two_factor_enabled?: boolean;
     created_at: string;
